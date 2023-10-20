@@ -41,7 +41,7 @@ The settings menu allows users to update the visibility of their devices in the 
     go run main.go
     ```
 
-4) Install dependencies and run the frontend Vue server.
+4) In a new terminal window, install dependencies and run the frontend Vue server.
 
     ```
     cd frontend
