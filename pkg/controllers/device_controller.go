@@ -13,8 +13,27 @@ import (
 )
 
 func FetchDeviceData(w http.ResponseWriter, r *http.Request) {
-	utils.SyncDataFromApi()
-	devices := models.GetAllDevices()
+	err := utils.SyncDataFromApi()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	devices, err := models.GetAllDevices()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	queryParams := r.URL.Query()
+	shouldValidateIconUrls := queryParams.Get("validateIconUrls")
+	if shouldValidateIconUrls == "true" {
+		devices, err = utils.ValidateIconUrls(devices)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	res, _ := json.Marshal(devices)
 
 	// Set CORS headers to allow requests from any origin
@@ -40,7 +59,11 @@ func UpdateDeviceVisibility(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, visibilityUpdate := range visibilityUpdates {
-		models.UpdateDeviceVisibility(visibilityUpdate.DeviceId, visibilityUpdate.Visible)
+		err := models.UpdateDeviceVisibility(visibilityUpdate.DeviceId, visibilityUpdate.Visible)
+		if err != nil {
+			http.Error(w, "Failed to update device visibility", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Set CORS headers to allow requests from any origin
@@ -90,7 +113,11 @@ func UpdateDeviceIcon(w http.ResponseWriter, r *http.Request) {
 
 			// set the device.IconUrl as relative path to the image file for frontend to use
 			imageUrl := "icons/" + uniqueID + fileExt
-			models.UpdateDeviceIcon(deviceID, imageUrl)
+			updateError := models.UpdateDeviceIcon(deviceID, imageUrl)
+			if updateError != nil {
+				http.Error(w, "Failed to update device icon", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 

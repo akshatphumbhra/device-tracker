@@ -35,60 +35,75 @@ func init() {
 	db.AutoMigrate(&Device{})
 }
 
-func (d *Device) CreateDevice() *Device {
-	db.Create(&d)
-	return d
+func (d *Device) CreateDevice() (*Device, error) {
+	result := db.Create(&d)
+	return d, result.Error
 }
 
-func GetAllDevices() []Device {
+func GetAllDevices() ([]Device, error) {
 	var devices []Device
-	db.Find(&devices)
-	return devices
+	result := db.Find(&devices)
+	return devices, result.Error
 }
 
-func (d *Device) UpdateExistingDevice(newDeviceDetails *Device) *Device {
-	db.Model(&d).Updates(&newDeviceDetails)
-	return newDeviceDetails
+func (d *Device) UpdateExistingDevice(newDeviceDetails *Device) (*Device, error) {
+	result := db.Model(&d).Updates(&newDeviceDetails)
+	return newDeviceDetails, result.Error
 }
 
-func CreateOrUpdateDevices(device *Device) {
+func CreateOrUpdateDevices(device *Device) error {
 	var existingDevice Device
 	result := db.Where("device_id = ?", device.DeviceId).First(&existingDevice)
 	if result.Error == gorm.ErrRecordNotFound {
 		// Device doesn't exist in the database, create a new record
 		device.Visible = true
 		device.IconUrl = ""
-		device.CreateDevice()
+		_, err := device.CreateDevice()
+		if err != nil {
+			return err
+		}
 		fmt.Printf("Device with DeviceId %s added to the database\n", device.DeviceId)
 	} else if result.Error == nil {
 		// Device exists, update its information
-		existingDevice.UpdateExistingDevice(device)
+		_, err := existingDevice.UpdateExistingDevice(device)
+		if err != nil {
+			return err
+		}
 		fmt.Printf("Device with DeviceId %s updated in the database\n", device.DeviceId)
 	} else {
 		fmt.Printf("Error querying the database: %v\n", result.Error)
 	}
+	return result.Error
 }
 
-func UpdateDeviceIcon(deviceId string, iconUrl string) {
+func UpdateDeviceIcon(deviceId string, iconUrl string) error {
 	var existingDevice Device
 	result := db.Where("device_id = ?", deviceId).First(&existingDevice)
 	if result.Error == nil {
 		existingDevice.IconUrl = iconUrl
-		db.Save(&existingDevice)
+		saveResult := db.Save(&existingDevice)
+		if saveResult.Error != nil {
+			return saveResult.Error
+		}
 		fmt.Printf("Device with DeviceId %s updated in the database\n", deviceId)
 	} else {
 		fmt.Printf("Error querying the database while updating device icon: %v\n", result.Error)
 	}
+	return result.Error
 }
 
-func UpdateDeviceVisibility(deviceId string, visible bool) {
+func UpdateDeviceVisibility(deviceId string, visible bool) error {
 	var existingDevice Device
 	result := db.Where("device_id = ?", deviceId).First(&existingDevice)
 	if result.Error == nil {
 		existingDevice.Visible = visible
-		db.Save(&existingDevice)
+		saveResult := db.Save(&existingDevice)
+		if saveResult.Error != nil {
+			return saveResult.Error
+		}
 		fmt.Printf("Device with DeviceId %s updated in the database\n", deviceId)
 	} else {
 		fmt.Printf("Error querying the database while updating visibility: %v\n", result.Error)
 	}
+	return result.Error
 }
