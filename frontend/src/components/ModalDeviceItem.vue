@@ -25,7 +25,7 @@
         </div>
       </div>
       <div v-else class="colored-circle image-center">
-        {{ device.display_name.charAt(0) }}
+        <i class="fa-solid fa-plus"></i>
       </div>
     </div>
     <div class="device-info">
@@ -99,7 +99,7 @@
   height: 50px;
   max-width: 100%;
   max-height: 100%;
-  background-color: #3498db;
+  background-color: #5f6366;
   color: white;
   margin: auto;
   font-size: 20px;
