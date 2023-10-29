@@ -29,7 +29,7 @@
 import DeviceList from "@/components/DeviceList.vue";
 import GoogleMap from "@/components/GoogleMap.vue";
 import { DeviceProps } from "../constants/deviceProps";
-import { defineComponent, computed } from "vue";
+import { defineComponent } from "vue";
 
 export default defineComponent({
   components: {
