@@ -7,18 +7,22 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/akshatphumbhra/device-tracker/pkg/config"
 	"github.com/akshatphumbhra/device-tracker/pkg/models"
 	"github.com/akshatphumbhra/device-tracker/pkg/utils"
 	"github.com/google/uuid"
 )
 
+func init() {
+	config.Connect()
+	db := config.GetDB()
+	db.AutoMigrate(&models.Device{})
+}
+
 func FetchDeviceData(w http.ResponseWriter, r *http.Request) {
-	err := utils.SyncDataFromApi()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	devices, err := models.GetAllDevices()
+	db := config.GetDB()
+
+	err := utils.SyncDataFromApi(db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -27,11 +31,17 @@ func FetchDeviceData(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	shouldValidateIconUrls := queryParams.Get("validateIconUrls")
 	if shouldValidateIconUrls == "true" {
-		devices, err = utils.ValidateIconUrls(devices)
+		err = utils.ValidateIconUrls(db)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	}
+
+	devices, err := models.GetAllDevices(db)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	res, _ := json.Marshal(devices)
@@ -47,6 +57,8 @@ func FetchDeviceData(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateDeviceVisibility(w http.ResponseWriter, r *http.Request) {
+	db := config.GetDB()
+
 	var visibilityUpdates []struct {
 		DeviceId string `json:"deviceId"`
 		Visible  bool   `json:"visible"`
@@ -59,7 +71,7 @@ func UpdateDeviceVisibility(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, visibilityUpdate := range visibilityUpdates {
-		err := models.UpdateDeviceVisibility(visibilityUpdate.DeviceId, visibilityUpdate.Visible)
+		err := models.UpdateDeviceVisibility(db, visibilityUpdate.DeviceId, visibilityUpdate.Visible)
 		if err != nil {
 			http.Error(w, "Failed to update device visibility", http.StatusInternalServerError)
 			return
@@ -76,6 +88,8 @@ func UpdateDeviceVisibility(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateDeviceIcon(w http.ResponseWriter, r *http.Request) {
+	db := config.GetDB()
+
 	err := r.ParseMultipartForm(10 * 1024 * 1024) // 10MB limit
 	if err != nil {
 		http.Error(w, "Failed to parse multipart form", http.StatusBadRequest)
@@ -113,7 +127,7 @@ func UpdateDeviceIcon(w http.ResponseWriter, r *http.Request) {
 
 			// set the device.IconUrl as relative path to the image file for frontend to use
 			imageUrl := "icons/" + uniqueID + fileExt
-			updateError := models.UpdateDeviceIcon(deviceID, imageUrl)
+			updateError := models.UpdateDeviceIcon(db, deviceID, imageUrl)
 			if updateError != nil {
 				http.Error(w, "Failed to update device icon", http.StatusInternalServerError)
 				return

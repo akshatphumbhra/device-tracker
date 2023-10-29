@@ -3,11 +3,8 @@ package models
 import (
 	"fmt"
 
-	"github.com/akshatphumbhra/device-tracker/pkg/config"
 	"github.com/jinzhu/gorm"
 )
-
-var db *gorm.DB
 
 type DeviceState struct {
 	DriveStatus string `json:"drive_status"`
@@ -29,43 +26,37 @@ type Device struct {
 	LatestDevicePoint LatestDevicePoint `json:"latest_device_point" gorm:"embedded"`
 }
 
-func init() {
-	config.Connect()
-	db = config.GetDB()
-	db.AutoMigrate(&Device{})
-}
-
-func (d *Device) CreateDevice() (*Device, error) {
+func (d *Device) CreateDevice(db *gorm.DB) (*Device, error) {
 	result := db.Create(&d)
 	return d, result.Error
 }
 
-func GetAllDevices() ([]Device, error) {
+func GetAllDevices(db *gorm.DB) ([]Device, error) {
 	var devices []Device
 	result := db.Find(&devices)
 	return devices, result.Error
 }
 
-func (d *Device) UpdateExistingDevice(newDeviceDetails *Device) (*Device, error) {
+func (d *Device) UpdateExistingDevice(db *gorm.DB, newDeviceDetails *Device) (*Device, error) {
 	result := db.Model(&d).Updates(&newDeviceDetails)
 	return newDeviceDetails, result.Error
 }
 
-func CreateOrUpdateDevices(device *Device) error {
+func CreateOrUpdateDevices(db *gorm.DB, device *Device) error {
 	var existingDevice Device
 	result := db.Where("device_id = ?", device.DeviceId).First(&existingDevice)
 	if result.Error == gorm.ErrRecordNotFound {
 		// Device doesn't exist in the database, create a new record
 		device.Visible = true
 		device.IconUrl = ""
-		_, err := device.CreateDevice()
+		_, err := device.CreateDevice(db)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("Device with DeviceId %s added to the database\n", device.DeviceId)
 	} else if result.Error == nil {
 		// Device exists, update its information
-		_, err := existingDevice.UpdateExistingDevice(device)
+		_, err := existingDevice.UpdateExistingDevice(db, device)
 		if err != nil {
 			return err
 		}
@@ -76,7 +67,7 @@ func CreateOrUpdateDevices(device *Device) error {
 	return result.Error
 }
 
-func UpdateDeviceIcon(deviceId string, iconUrl string) error {
+func UpdateDeviceIcon(db *gorm.DB, deviceId string, iconUrl string) error {
 	var existingDevice Device
 	result := db.Where("device_id = ?", deviceId).First(&existingDevice)
 	if result.Error == nil {
@@ -92,7 +83,7 @@ func UpdateDeviceIcon(deviceId string, iconUrl string) error {
 	return result.Error
 }
 
-func UpdateDeviceVisibility(deviceId string, visible bool) error {
+func UpdateDeviceVisibility(db *gorm.DB, deviceId string, visible bool) error {
 	var existingDevice Device
 	result := db.Where("device_id = ?", deviceId).First(&existingDevice)
 	if result.Error == nil {

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/akshatphumbhra/device-tracker/pkg/models"
+	"github.com/jinzhu/gorm"
 )
 
 type APIResponse struct {
@@ -23,7 +24,7 @@ func (e CustomError) Error() string {
 	return e.Message
 }
 
-func SyncDataFromApi() error {
+func SyncDataFromApi(db *gorm.DB) error {
 	apiKey := os.Getenv("ONE_STEP_GPS_API_KEY")
 	url := fmt.Sprintf("https://track.onestepgps.com/v3/api/public/device?latest_point=true&api-key=%s", apiKey)
 
@@ -45,25 +46,29 @@ func SyncDataFromApi() error {
 	}
 
 	for _, device := range apiResponse.ResultList {
-		models.CreateOrUpdateDevices(&device)
+		models.CreateOrUpdateDevices(db, &device)
 	}
 	return nil
 }
 
-func ValidateIconUrls(devices []models.Device) ([]models.Device, error) {
+func ValidateIconUrls(db *gorm.DB) error {
+	devices, err := models.GetAllDevices(db)
+	if err != nil {
+		return CustomError{Message: "Error fetching devices from database"}
+	}
+
 	for _, device := range devices {
 		if device.IconUrl != "" {
 			imageFilePath := filepath.Join("../../frontend/src/assets/", device.IconUrl)
 			if !isFileExists(imageFilePath) {
-				err := models.UpdateDeviceIcon(device.DeviceId, "")
+				err := models.UpdateDeviceIcon(db, device.DeviceId, "")
 				if err != nil {
-					return nil, CustomError{Message: "Error updating device icon"}
+					return CustomError{Message: "Error updating device icon"}
 				}
-				device.IconUrl = ""
 			}
 		}
 	}
-	return devices, nil
+	return nil
 }
 
 func isFileExists(filePath string) bool {
